@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>의뢰 가족 카드 생성기</title>
+<style>
+  :root{
+    --paper:#f2f4f8; --ink:#1f2a3d; --blue:#2b4c8c; --blue-soft:#e6ecf7;
+    --line:#c9d3e4; --stamp:#b8452f;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:"Apple SD Gothic Neo","Malgun Gothic","맑은 고딕",sans-serif;
+       background:var(--paper); color:var(--ink); padding:20px; font-size:18px;
+       background-image:linear-gradient(var(--line) 1px, transparent 1px),
+                        linear-gradient(90deg, var(--line) 1px, transparent 1px);
+       background-size:36px 36px; background-position:-1px -1px;}
+  .wrap{max-width:760px; margin:0 auto;}
+  header{text-align:center; margin-bottom:16px;}
+  h1{font-size:28px; color:var(--blue); letter-spacing:-0.5px;}
+  .sub{color:#5a6a85; font-size:15px; margin-top:4px;}
+  .btnbar{display:flex; justify-content:center; margin:14px 0 20px;}
+  .btn{padding:16px 34px; font-size:21px; font-weight:800; color:#fff;
+       background:var(--blue); border:none; border-radius:12px; cursor:pointer;}
+  .btn:active{transform:translateY(1px);}
+  .card{position:relative; background:#fff; border:2px solid var(--blue);
+        border-radius:14px; padding:26px 24px 22px; box-shadow:0 6px 0 rgba(43,76,140,.12);
+        display:none;}
+  .stamp{position:absolute; top:14px; right:16px; border:3px solid var(--stamp);
+         color:var(--stamp); font-weight:900; padding:6px 12px; border-radius:8px;
+         transform:rotate(6deg); font-size:16px; letter-spacing:2px;}
+  .card h2{font-size:20px; color:var(--blue); border-bottom:2px solid var(--blue-soft);
+           padding-bottom:10px; margin-bottom:14px;}
+  .case{font-size:14px; color:#5a6a85; margin-bottom:2px; letter-spacing:1px;}
+  .member{display:grid; grid-template-columns:110px 1fr; gap:6px 14px;
+          padding:12px 0; border-bottom:1.5px dashed var(--line);}
+  .member .who{font-weight:900; font-size:18px;}
+  .member .age{color:#5a6a85; font-size:15px;}
+  .member .job{font-weight:700; color:var(--blue);}
+  .member .trait{font-size:16px;}
+  .special{margin-top:16px; background:var(--blue-soft); border-radius:10px; padding:14px;}
+  .special b{color:var(--blue);}
+  .special li{margin-left:22px; margin-top:6px; font-size:17px;}
+  .hint{margin-top:14px; font-size:14px; color:#5a6a85;}
+  footer{font-size:13px; color:#5a6a85; text-align:center; margin-top:16px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>의뢰 가족 카드 생성기</h1>
+    <div class="sub">주거 설계 사무소에 새 의뢰가 도착했습니다. 버튼을 눌러 의뢰 가족을 만나 보세요.</div>
+  </header>
+
+  <div class="btnbar">
+    <button class="btn" type="button" onclick="generate()">의뢰 가족 만나기</button>
+  </div>
+
+  <div class="card" id="card">
+    <div class="stamp">의 뢰 서</div>
+    <div class="case" id="caseNo"></div>
+    <h2 id="title"></h2>
+    <div id="members"></div>
+    <div class="special">
+      <b>가족 공통 특별 조건</b>
+      <ul id="special"></ul>
+    </div>
+    <div class="hint">※ 카드의 인물과 조건은 모두 가상입니다. 화면을 캡처하거나 활동지에 옮겨 적어 프로젝트 내내 사용하세요. (모둠당 1회만 뽑기)</div>
+  </div>
+
+  <footer>이 카드는 무작위로 만들어지며, 어떤 정보도 저장·전송되지 않습니다.</footer>
+</div>
+
+<script>
+/* 모든 인물·직업·조건은 수업용 가상 설정입니다. */
+const SURNAMES = ["강","서","한","진","도","문","배","임","채","오"];
+const GIVEN    = ["보라","시온","은호","가온","다인","로운","세아","윤재","하늘","준","소미","태오","유진","별","산","해솔"];
+
+const ADULT_JOBS = [
+  {job:"재택근무 회사원", trait:"낮 시간 화상회의가 많아 조용하고 독립된 업무 공간이 필요함", quiet:true},
+  {job:"간호사(삼교대)",   trait:"밤 근무 후 낮에 자야 해서 빛과 소음이 차단되는 침실이 필요함", quiet:true},
+  {job:"제과사",          trait:"새벽에 출근해 이른 저녁에 잠들며, 주방에서 베이킹 연습을 자주 함", quiet:false},
+  {job:"개인 미디어 제작자", trait:"영상 촬영·편집 장비를 둘 작업 공간이 필요하고 밤 작업이 잦음", quiet:false},
+  {job:"체육 강사",        trait:"홈트레이닝 기구를 두고 집에서도 운동하며 활동적임", quiet:false},
+  {job:"프리랜서 번역가",  trait:"집중이 필요한 작업이 많고 책이 매우 많아 수납이 고민임", quiet:true},
+  {job:"음악 교사",        trait:"집에서 악기(첼로) 연습을 매일 1시간씩 함", quiet:false},
+  {job:"은퇴 후 정원 가꾸기가 취미", trait:"화분이 많아 햇빛 드는 공간이 꼭 필요하고 무릎이 약해 문턱이 없으면 좋겠음", quiet:true}
+];
+const YOUNG = [
+  {who:"중학생", age:()=>13+r(3), trait:"조용히 공부할 개인 공간을 원하고, 친구를 집에 자주 초대함"},
+  {who:"고등학생", age:()=>17+r(2), trait:"밤늦게까지 공부하며 가족 소음에 민감함"},
+  {who:"초등학생", age:()=>8+r(4), trait:"거실에서 몸으로 노는 것을 좋아하고 장난감이 많음"}
+];
+const SPECIALS = [
+  "반려견 1마리와 함께 삽니다(배변·급식 공간과 산책 후 씻길 공간 필요).",
+  "가족 중 1명이 휠체어를 사용합니다(복도 폭·문턱·화장실 접근성 고려).",
+  "온 가족이 캠핑이 취미라 부피 큰 장비 수납 공간이 필요합니다.",
+  "매주 주말 친척들이 모여 저녁을 함께 먹습니다(넉넉한 식사 공간 필요).",
+  "미니멀 라이프를 지향하지만 계절옷·이불 수납이 늘 고민입니다.",
+  "가족 모두 요리를 좋아해 두 명이 함께 쓸 수 있는 조리 공간을 원합니다.",
+  "재활용·분리배출을 철저히 해서 분류 보관 공간이 필요합니다.",
+  "고양이 2마리와 함께 삽니다(수직 동선과 창가 자리, 털 관리 고려)."
+];
+
+function r(n){ return Math.floor(Math.random()*n); }
+function pick(arr){ return arr[r(arr.length)]; }
+function pickOut(arr){ return arr.splice(r(arr.length),1)[0]; }
+let caseCount = 0;
+
+function generate(){
+  caseCount++;
+  const surname = pick(SURNAMES);
+  const names = [...GIVEN];
+  const jobs  = [...ADULT_JOBS];
+  const size = 2 + r(3);              // 2~4인
+  const members = [];
+
+  // 성인 1: 무작위
+  const a1 = pickOut(jobs);
+  members.push({name:surname+pickOut(names), age:34+r(20), job:a1.job, trait:a1.trait, quiet:a1.quiet});
+
+  // 성인 2: 첫 성인이 '조용함 필요'형이면 활동형을 우선 배치해 요구 충돌 유도
+  if(size >= 2){
+    let pool = jobs.filter(j => j.quiet !== a1.quiet);
+    if(pool.length === 0 || Math.random() < 0.25) pool = jobs; // 가끔은 자유 조합
+    const a2 = pool[r(pool.length)];
+    jobs.splice(jobs.indexOf(a2),1);
+    members.push({name:surname+pickOut(names), age:32+r(22), job:a2.job, trait:a2.trait});
+  }
+  // 3~4인: 자녀·청소년
+  for(let i=2;i<size;i++){
+    const y = pick(YOUNG);
+    members.push({name:surname+pickOut(names), age:y.age(), job:y.who, trait:y.trait});
+  }
+
+  // 특별 조건 1~2개
+  const sp = [...SPECIALS];
+  const specials = [pickOut(sp)];
+  if(Math.random() < 0.6) specials.push(pickOut(sp));
+
+  // 렌더링
+  document.getElementById('caseNo').textContent = 'CASE No. ' + String(caseCount).padStart(3,'0');
+  document.getElementById('title').textContent = `${surname}씨네 ${size}인 가족의 집을 설계해 주세요`;
+  document.getElementById('members').innerHTML = members.map(m=>`
+    <div class="member">
+      <div><div class="who">${m.name}</div><div class="age">${m.age}세</div></div>
+      <div><div class="job">${m.job}</div><div class="trait">${m.trait}</div></div>
+    </div>`).join('');
+  document.getElementById('special').innerHTML = specials.map(s=>`<li>${s}</li>`).join('');
+  document.getElementById('card').style.display = 'block';
+}
+</script>
+</body>
+</html>
